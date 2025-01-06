@@ -22,7 +22,10 @@ func main() {
 		commandAndArgs := strings.Split(command, " ")
 		if commandAndArgs[0] == "exit" {
 			break
+		} else if commandAndArgs[0] == "echo" {
+			fmt.Println(strings.Join(commandAndArgs[1:], " "))
+		} else {
+			fmt.Println(command + ": command not found")
 		}
-		fmt.Println(command + ": command not found")
 	}
 }
