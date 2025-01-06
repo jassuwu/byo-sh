@@ -40,10 +40,10 @@ REPL:
 				PATH := os.Getenv("PATH")
 				paths := strings.Split(PATH, ":")
 				for _, path := range paths {
-					dirEntries, err := os.ReadDir(path)
-					if err != nil {
-						fmt.Fprintln(os.Stderr, "Error reading directory entries:", err)
-					}
+					dirEntries, _ := os.ReadDir(path)
+					// if err != nil {
+					// 	fmt.Fprintln(os.Stderr, "Error reading directory entries:", err)
+					// }
 					for _, commandInPath := range dirEntries {
 						if !commandInPath.IsDir() && commandToFindType == commandInPath.Name() {
 							fmt.Println(commandToFindType, "is", path+"/"+commandToFindType)
