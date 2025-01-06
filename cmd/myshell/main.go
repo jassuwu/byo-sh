@@ -37,7 +37,7 @@ REPL:
 				}
 			}
 			if !found {
-				fmt.Println(commandString + ": not found")
+				fmt.Println(commandToFindType + ": not found")
 			}
 		default:
 			fmt.Println(commandString + ": command not found")
