@@ -9,6 +9,7 @@ import (
 
 func main() {
 	builtins := []string{"exit", "echo", "type"}
+	PATH := os.Getenv("PATH")
 	// REPL
 REPL:
 	for {
@@ -37,7 +38,6 @@ REPL:
 				}
 			}
 			if !found {
-				PATH := os.Getenv("PATH")
 				paths := strings.Split(PATH, ":")
 				for _, path := range paths {
 					dirEntries, _ := os.ReadDir(path)
