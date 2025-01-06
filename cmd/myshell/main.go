@@ -31,7 +31,7 @@ REPL:
 			commandToFindType, found := commandAndArgs[1], false
 			for _, builtin := range builtins {
 				if builtin == commandToFindType {
-					fmt.Println(commandString, "is a shell builtin")
+					fmt.Println(commandToFindType, "is a shell builtin")
 					found = true
 					break
 				}
