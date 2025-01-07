@@ -21,9 +21,8 @@ func tokenize(input string) []string {
 			// Toggle single quotes
 			inSingleQuotes = !inSingleQuotes
 			if !inSingleQuotes {
-				// End of single-quoted token
-				tokens = append(tokens, currentToken.String())
-				currentToken.Reset()
+				// Stay in currentToken for adjacent quotes
+				continue
 			}
 			continue
 		}
@@ -32,15 +31,14 @@ func tokenize(input string) []string {
 			// Toggle double quotes
 			inDoubleQuotes = !inDoubleQuotes
 			if !inDoubleQuotes {
-				// End of double-quoted token
-				tokens = append(tokens, currentToken.String())
-				currentToken.Reset()
+				// Stay in currentToken for adjacent quotes
+				continue
 			}
 			continue
 		}
 
 		if inSingleQuotes {
-			// Inside single quotes, everything is literal
+			// Inside single quotes, treat everything as literal
 			currentToken.WriteByte(c)
 		} else if inDoubleQuotes {
 			// Inside double quotes, handle escape sequences
