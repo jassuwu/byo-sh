@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	builtins := []string{"exit", "echo", "type"}
+	builtins := []string{"exit", "echo", "type", "pwd"}
 	PATH := os.Getenv("PATH")
 	// REPL
 REPL:
