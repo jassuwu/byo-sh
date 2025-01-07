@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"syscall"
 )
 
 func main() {
@@ -57,7 +58,25 @@ REPL:
 				fmt.Println(commandToFindType + ": not found")
 			}
 		default:
-			fmt.Println(commandString + ": command not found")
+			found := false
+			paths := strings.Split(PATH, ":")
+		PATHLOOP:
+			for _, path := range paths {
+				dirEntries, _ := os.ReadDir(path)
+				for _, commandInPath := range dirEntries {
+					if !commandInPath.IsDir() && commandInPath.Name() == commandAndArgs[0] {
+						execErr := syscall.Exec(path+"/"+commandAndArgs[0], commandAndArgs, os.Environ())
+						if execErr != nil {
+							fmt.Fprintln(os.Stderr, execErr)
+						}
+						found = true
+						break PATHLOOP
+					}
+				}
+			}
+			if !found {
+				fmt.Println(commandString + ": command not found")
+			}
 		}
 	}
 }
