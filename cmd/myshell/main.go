@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	builtins := []string{"exit", "echo", "type", "pwd"}
+	builtins := []string{"exit", "echo", "type", "pwd", "cd"}
 	PATH := os.Getenv("PATH")
 	// REPL
 REPL:
@@ -63,6 +63,12 @@ REPL:
 				fmt.Fprintln(os.Stderr, err)
 			}
 			fmt.Println(cwd)
+		case "cd":
+			newWD := commandAndArgs[1]
+			err := os.Chdir(newWD)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "cd:", newWD+":", "No such file or directory")
+			}
 		default:
 			found := false
 			paths := strings.Split(PATH, ":")
