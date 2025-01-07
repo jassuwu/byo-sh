@@ -57,6 +57,12 @@ REPL:
 			if !found {
 				fmt.Println(commandToFindType + ": not found")
 			}
+		case "pwd":
+			cwd, err := os.Getwd()
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+			}
+			fmt.Println(cwd)
 		default:
 			found := false
 			paths := strings.Split(PATH, ":")
