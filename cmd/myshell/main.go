@@ -8,37 +8,63 @@ import (
 	"strings"
 )
 
-func tokenize(s string) []string {
+func tokenize(input string) []string {
 	var tokens []string
 	var currentToken strings.Builder
-	inQuotes := false
+	inSingleQuotes := false
+	inDoubleQuotes := false
 
-	for i := 0; i < len(s); i++ {
-		c := s[i]
+	for i := 0; i < len(input); i++ {
+		c := input[i]
 
-		if c == '\'' {
-			// Toggle inQuotes state
-			inQuotes = !inQuotes
-			if !inQuotes {
-				// End of quoted segment; continue accumulating for adjacent quotes
-				continue
+		if c == '\'' && !inDoubleQuotes {
+			// Toggle single quotes
+			inSingleQuotes = !inSingleQuotes
+			if !inSingleQuotes {
+				// End of single-quoted token
+				tokens = append(tokens, currentToken.String())
+				currentToken.Reset()
 			}
-			// Start of quoted segment
 			continue
 		}
 
-		if inQuotes {
-			// Append characters inside quotes to currentToken
+		if c == '"' && !inSingleQuotes {
+			// Toggle double quotes
+			inDoubleQuotes = !inDoubleQuotes
+			if !inDoubleQuotes {
+				// End of double-quoted token
+				tokens = append(tokens, currentToken.String())
+				currentToken.Reset()
+			}
+			continue
+		}
+
+		if inSingleQuotes {
+			// Inside single quotes, everything is literal
+			currentToken.WriteByte(c)
+		} else if inDoubleQuotes {
+			// Inside double quotes, handle escape sequences
+			if c == '\\' && i+1 < len(input) {
+				nextChar := input[i+1]
+				switch nextChar {
+				case '\\', '"', '$': // Escaped characters
+					currentToken.WriteByte(nextChar)
+					i++ // Skip the escaped character
+					continue
+				case '\n': // Skip newline in double quotes
+					i++
+					continue
+				}
+			}
 			currentToken.WriteByte(c)
 		} else {
+			// Outside quotes, split on spaces
 			if c == ' ' {
-				// If outside quotes and space is found, flush currentToken to tokens
 				if currentToken.Len() > 0 {
 					tokens = append(tokens, currentToken.String())
 					currentToken.Reset()
 				}
 			} else {
-				// Append characters outside quotes to currentToken
 				currentToken.WriteByte(c)
 			}
 		}
