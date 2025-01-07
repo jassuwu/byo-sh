@@ -14,16 +14,26 @@ func main() {
 	// REPL
 REPL:
 	for {
-		// Uncomment this block to pass the first stage
 		fmt.Fprint(os.Stdout, "$ ")
-
-		// Wait for user input
 		commandWithNewLine, err := bufio.NewReader(os.Stdin).ReadString('\n')
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "Error reading input:", err)
 		}
-		commandString := commandWithNewLine[:len(commandWithNewLine)-1]
-		commandAndArgs := strings.Split(commandString, " ")
+		commandString := strings.Trim(commandWithNewLine, "\r\n")
+		var commandAndArgs []string
+		for {
+			start := strings.Index(commandString, "'")
+			if start == -1 {
+				commandAndArgs = append(commandAndArgs, strings.Fields(commandString)...)
+				break
+			}
+			commandAndArgs = append(commandAndArgs, strings.Fields(commandString[:start])...)
+			commandString = commandString[start+1:]
+			end := strings.Index(commandString, "'")
+			token := commandString[:end]
+			commandAndArgs = append(commandAndArgs, token)
+			commandString = commandString[end+1:]
+		}
 		switch commandAndArgs[0] {
 		case "exit":
 			break REPL
