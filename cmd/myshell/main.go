@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
-	"syscall"
 )
 
 func main() {
@@ -65,7 +65,9 @@ REPL:
 				dirEntries, _ := os.ReadDir(path)
 				for _, commandInPath := range dirEntries {
 					if !commandInPath.IsDir() && commandInPath.Name() == commandAndArgs[0] {
-						execErr := syscall.Exec(path+"/"+commandAndArgs[0], commandAndArgs, os.Environ())
+						commandToExec := exec.Command(path+"/"+commandAndArgs[0], commandAndArgs[1:]...)
+						commandToExec.Stdout, commandToExec.Stdin, commandToExec.Stderr = os.Stdout, os.Stdin, os.Stderr
+						execErr := commandToExec.Run()
 						if execErr != nil {
 							fmt.Fprintln(os.Stderr, execErr)
 						}
