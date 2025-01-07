@@ -29,10 +29,30 @@ REPL:
 			}
 			commandAndArgs = append(commandAndArgs, strings.Fields(commandString[:start])...)
 			commandString = commandString[start+1:]
+
 			end := strings.Index(commandString, "'")
+			if end == -1 {
+				fmt.Fprintln(os.Stderr, "Unmatched quote detected.")
+				break
+			}
+
 			token := commandString[:end]
 			commandAndArgs = append(commandAndArgs, token)
+
 			commandString = commandString[end+1:]
+
+			// Concatenate the next token if we encounter consecutive quotes
+			for strings.HasPrefix(commandString, "'") {
+				commandString = commandString[1:]
+				nextEnd := strings.Index(commandString, "'")
+				if nextEnd == -1 {
+					fmt.Fprintln(os.Stderr, "Unmatched quote detected.")
+					break
+				}
+				token = commandString[:nextEnd]
+				commandAndArgs = append(commandAndArgs, token)
+				commandString = commandString[nextEnd+1:]
+			}
 		}
 		switch commandAndArgs[0] {
 		case "exit":
