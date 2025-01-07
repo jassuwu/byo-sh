@@ -65,6 +65,9 @@ REPL:
 			fmt.Println(cwd)
 		case "cd":
 			newWD := commandAndArgs[1]
+			if newWD == "~" {
+				newWD = os.Getenv("HOME")
+			}
 			err := os.Chdir(newWD)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, "cd:", newWD+":", "No such file or directory")
