@@ -19,14 +19,14 @@ func tokenize(input string) []string {
 		c := input[i]
 
 		if escapeNext {
-			// Handle escaped characters
+			// Append the escaped character literally
 			currentToken.WriteByte(c)
 			escapeNext = false
 			continue
 		}
 
 		if c == '\\' {
-			// Set escape flag for the next character
+			// Set the escape flag for the next character
 			escapeNext = true
 			continue
 		}
@@ -47,15 +47,13 @@ func tokenize(input string) []string {
 			// Append characters inside quotes
 			currentToken.WriteByte(c)
 		} else {
-			// Outside quotes
+			// Outside quotes, handle spaces as token boundaries
 			if c == ' ' {
-				// Split on spaces, finalize current token
 				if currentToken.Len() > 0 {
 					tokens = append(tokens, currentToken.String())
 					currentToken.Reset()
 				}
 			} else {
-				// Concatenate adjacent quoted tokens
 				currentToken.WriteByte(c)
 			}
 		}
