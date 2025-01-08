@@ -13,56 +13,49 @@ func tokenize(input string) []string {
 	var currentToken strings.Builder
 	inSingleQuotes := false
 	inDoubleQuotes := false
+	escapeNext := false
 
 	for i := 0; i < len(input); i++ {
 		c := input[i]
 
+		if escapeNext {
+			// Handle escaped characters
+			currentToken.WriteByte(c)
+			escapeNext = false
+			continue
+		}
+
+		if c == '\\' {
+			// Set escape flag for the next character
+			escapeNext = true
+			continue
+		}
+
 		if c == '\'' && !inDoubleQuotes {
 			// Toggle single quotes
 			inSingleQuotes = !inSingleQuotes
-			if !inSingleQuotes {
-				// Stay in currentToken for adjacent quotes
-				continue
-			}
 			continue
 		}
 
 		if c == '"' && !inSingleQuotes {
 			// Toggle double quotes
 			inDoubleQuotes = !inDoubleQuotes
-			if !inDoubleQuotes {
-				// Stay in currentToken for adjacent quotes
-				continue
-			}
 			continue
 		}
 
-		if inSingleQuotes {
-			// Inside single quotes, treat everything as literal
-			currentToken.WriteByte(c)
-		} else if inDoubleQuotes {
-			// Inside double quotes, handle escape sequences
-			if c == '\\' && i+1 < len(input) {
-				nextChar := input[i+1]
-				switch nextChar {
-				case '\\', '"', '$': // Escaped characters
-					currentToken.WriteByte(nextChar)
-					i++ // Skip the escaped character
-					continue
-				case '\n': // Skip newline in double quotes
-					i++
-					continue
-				}
-			}
+		if inSingleQuotes || inDoubleQuotes {
+			// Append characters inside quotes
 			currentToken.WriteByte(c)
 		} else {
-			// Outside quotes, split on spaces
+			// Outside quotes
 			if c == ' ' {
+				// Split on spaces, finalize current token
 				if currentToken.Len() > 0 {
 					tokens = append(tokens, currentToken.String())
 					currentToken.Reset()
 				}
 			} else {
+				// Concatenate adjacent quoted tokens
 				currentToken.WriteByte(c)
 			}
 		}
