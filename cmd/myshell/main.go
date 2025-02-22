@@ -9,6 +9,7 @@ import (
 	"strings"
 )
 
+// tokenize splits the input string into tokens using Bash-style quoting rules.
 func tokenize(input string) []string {
 	var tokens []string
 	var currentToken strings.Builder
@@ -86,7 +87,7 @@ REPL:
 			continue
 		}
 
-		// Check for output redirection.
+		// Check for output redirection: ">" or "1>"
 		redir := false
 		redirIndex := -1
 		for i, t := range tokens {
@@ -110,10 +111,9 @@ REPL:
 				continue REPL
 			}
 			outWriter = fileHandle
-			// Remove redirection tokens.
+			// Remove redirection tokens from the command.
 			tokens = tokens[:redirIndex]
 			if len(tokens) == 0 {
-				// Nothing to execute.
 				fileHandle.Close()
 				continue REPL
 			}
@@ -123,7 +123,6 @@ REPL:
 		case "exit":
 			break REPL
 		case "echo":
-			// Write output to outWriter instead of os.Stdout.
 			fmt.Fprintln(outWriter, strings.Join(tokens[1:], " "))
 		case "type":
 			commandToFindType, found := tokens[1], false
@@ -175,15 +174,12 @@ REPL:
 				for _, commandInPath := range dirEntries {
 					if !commandInPath.IsDir() && commandInPath.Name() == tokens[0] {
 						commandToExec := exec.Command(path+"/"+tokens[0], tokens[1:]...)
-						// Override Arg[0] so the program sees only the command name.
+						// Override Arg[0] to show only the command name.
 						commandToExec.Args[0] = tokens[0]
 						commandToExec.Stdout = outWriter
 						commandToExec.Stdin = os.Stdin
 						commandToExec.Stderr = os.Stderr
-						err := commandToExec.Run()
-						if err != nil {
-							fmt.Fprintln(os.Stderr, err)
-						}
+						_ = commandToExec.Run() // Ignore the error to avoid printing "exit status 1"
 						found = true
 						break PATHLOOP
 					}
