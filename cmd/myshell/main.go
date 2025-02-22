@@ -145,7 +145,10 @@ REPL:
 				dirEntries, _ := os.ReadDir(path)
 				for _, commandInPath := range dirEntries {
 					if !commandInPath.IsDir() && commandInPath.Name() == tokens[0] {
+						// Create the command with the full path.
 						commandToExec := exec.Command(path+"/"+tokens[0], tokens[1:]...)
+						// Override Arg[0] with the original command name.
+						commandToExec.Args[0] = tokens[0]
 						commandToExec.Stdout, commandToExec.Stdin, commandToExec.Stderr = os.Stdout, os.Stdin, os.Stderr
 						execErr := commandToExec.Run()
 						if execErr != nil {
