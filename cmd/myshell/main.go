@@ -1,12 +1,13 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"strings"
+
+	"golang.org/x/term"
 )
 
 // tokenize splits the input string into tokens using Bash‑style quoting rules.
@@ -85,31 +86,89 @@ func tokenize(input string) []string {
 	return tokens
 }
 
+// readLine reads user input interactively in raw mode, handling each keypress.
+// It supports backspace and auto‑completion for the builtins "echo" and "exit" when TAB is pressed.
+func readLine(prompt string) (string, error) {
+	// Print the prompt.
+	fmt.Print(prompt)
+	var buf []rune
+	for {
+		// Read one byte from stdin.
+		var b [1]byte
+		n, err := os.Stdin.Read(b[:])
+		if err != nil || n == 0 {
+			return "", err
+		}
+		c := b[0]
+		if c == '\r' || c == '\n' {
+			// When Enter is pressed, print a newline and return the current input.
+			fmt.Print("\r\n")
+			break
+		} else if c == 9 { // TAB key
+			// Auto-complete: if the current input is a prefix of "echo" or "exit"
+			current := string(buf)
+			if strings.HasPrefix("echo", current) {
+				buf = []rune("echo ")
+			} else if strings.HasPrefix("exit", current) {
+				buf = []rune("exit ")
+			}
+			// Reprint the prompt and current buffer.
+			fmt.Print("\r\033[K") // \r returns carriage, \033[K clears to end of line.
+			fmt.Print(prompt + string(buf))
+		} else if c == 127 || c == 8 { // Backspace key (127 or 8)
+			if len(buf) > 0 {
+				buf = buf[:len(buf)-1]
+			}
+			fmt.Print("\r\033[K")
+			fmt.Print(prompt + string(buf))
+		} else {
+			// Append normal characters.
+			buf = append(buf, rune(c))
+			fmt.Printf("%c", c)
+		}
+	}
+	return string(buf), nil
+}
+
 func main() {
+	// Builtins: auto-completion will work only for "echo" and "exit".
 	builtins := []string{"exit", "echo", "type", "pwd", "cd"}
 	PATH := os.Getenv("PATH")
-	reader := bufio.NewReader(os.Stdin)
 
-REPL:
+	// Put the terminal into raw mode for fully interactive key handling.
+	fd := int(os.Stdin.Fd())
+	oldState, err := term.MakeRaw(fd)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error setting raw mode:", err)
+		return
+	}
+	defer term.Restore(fd, oldState)
+
+	// Main REPL loop.
 	for {
-		fmt.Fprint(os.Stdout, "$ ")
-		commandWithNewLine, err := reader.ReadString('\n')
+		// Use our custom readLine function.
+		s, err := readLine("$ ")
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "Error reading input:", err)
+			fmt.Fprintln(os.Stderr, "Error reading line:", err)
 			continue
 		}
-		s := strings.Trim(commandWithNewLine, "\r\n")
+		s = strings.TrimSpace(s)
 		if s == "" {
 			continue
 		}
+
+		// Tokenize the input.
 		tokens := tokenize(s)
 		if len(tokens) == 0 {
 			continue
 		}
 
 		// Process redirection tokens.
-		// We'll support overwriting: ">" or "1>" for stdout, "2>" for stderr,
-		// and appending: ">>" or "1>>" for stdout, "2>>" for stderr.
+		// Supported redirections:
+		//   stdout overwrite: ">" or "1>"
+		//   stdout append:    ">>" or "1>>"
+		//   stderr overwrite: "2>"
+		//   stderr append:    "2>>"
 		var stdoutFileName string
 		var stdoutAppend bool
 		var stderrFileName string
@@ -121,17 +180,16 @@ REPL:
 			if t == ">" || t == "1>" || t == ">>" || t == "1>>" {
 				if i+1 >= len(tokens) {
 					fmt.Fprintln(os.Stderr, "Redirection operator provided without filename")
-					continue REPL
+					continue
 				}
 				stdoutFileName = tokens[i+1]
 				stdoutAppend = (t == ">>" || t == "1>>")
-				// Remove the redirection operator and filename.
 				tokens = append(tokens[:i], tokens[i+2:]...)
-				continue // Check same index again.
+				continue
 			} else if t == "2>" || t == "2>>" {
 				if i+1 >= len(tokens) {
 					fmt.Fprintln(os.Stderr, "Redirection operator provided without filename")
-					continue REPL
+					continue
 				}
 				stderrFileName = tokens[i+1]
 				stderrAppend = (t == "2>>")
@@ -147,24 +205,30 @@ REPL:
 		var stdoutFile *os.File
 		var stderrFile *os.File
 
-		// Open stdout file if specified.
 		if stdoutFileName != "" {
 			if stdoutAppend {
-				stdoutFile, err = os.OpenFile(stdoutFileName, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+				stdoutFile, err = os.OpenFile(
+					stdoutFileName,
+					os.O_WRONLY|os.O_CREATE|os.O_APPEND,
+					0644,
+				)
 			} else {
 				stdoutFile, err = os.Create(stdoutFileName)
 			}
 			if err != nil {
 				fmt.Fprintln(os.Stderr, "Error opening file for stdout redirection:", err)
-				continue REPL
+				continue
 			}
 			outWriter = stdoutFile
 		}
 
-		// Open stderr file if specified.
 		if stderrFileName != "" {
 			if stderrAppend {
-				stderrFile, err = os.OpenFile(stderrFileName, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+				stderrFile, err = os.OpenFile(
+					stderrFileName,
+					os.O_WRONLY|os.O_CREATE|os.O_APPEND,
+					0644,
+				)
 			} else {
 				stderrFile, err = os.Create(stderrFileName)
 			}
@@ -173,7 +237,7 @@ REPL:
 				if stdoutFile != nil {
 					stdoutFile.Close()
 				}
-				continue REPL
+				continue
 			}
 			errWriter = stderrFile
 		}
@@ -181,7 +245,7 @@ REPL:
 		// Execute command.
 		switch tokens[0] {
 		case "exit":
-			break REPL
+			return
 		case "echo":
 			fmt.Fprintln(outWriter, strings.Join(tokens[1:], " "))
 		case "type":
@@ -197,9 +261,9 @@ REPL:
 				paths := strings.Split(PATH, ":")
 			TYPEPATHLOOP:
 				for _, path := range paths {
-					dirEntries, _ := os.ReadDir(path)
-					for _, commandInPath := range dirEntries {
-						if !commandInPath.IsDir() && commandToFindType == commandInPath.Name() {
+					entries, _ := os.ReadDir(path)
+					for _, entry := range entries {
+						if !entry.IsDir() && commandToFindType == entry.Name() {
 							fmt.Fprintln(outWriter, commandToFindType, "is", path+"/"+commandToFindType)
 							found = true
 							break TYPEPATHLOOP
@@ -230,16 +294,16 @@ REPL:
 			paths := strings.Split(PATH, ":")
 		PATHLOOP:
 			for _, path := range paths {
-				dirEntries, _ := os.ReadDir(path)
-				for _, commandInPath := range dirEntries {
-					if !commandInPath.IsDir() && commandInPath.Name() == tokens[0] {
-						commandToExec := exec.Command(path+"/"+tokens[0], tokens[1:]...)
-						// Override Arg[0] to display only the command name.
-						commandToExec.Args[0] = tokens[0]
-						commandToExec.Stdout = outWriter
-						commandToExec.Stdin = os.Stdin
-						commandToExec.Stderr = errWriter
-						_ = commandToExec.Run() // Suppress extra error messages.
+				entries, _ := os.ReadDir(path)
+				for _, entry := range entries {
+					if !entry.IsDir() && entry.Name() == tokens[0] {
+						cmd := exec.Command(path+"/"+tokens[0], tokens[1:]...)
+						// Override Arg[0] so the program sees only the command name.
+						cmd.Args[0] = tokens[0]
+						cmd.Stdout = outWriter
+						cmd.Stdin = os.Stdin
+						cmd.Stderr = errWriter
+						_ = cmd.Run()
 						found = true
 						break PATHLOOP
 					}
