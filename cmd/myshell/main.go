@@ -26,7 +26,7 @@ func tokenize(input string) []string {
 					currentToken.WriteByte('\n') // \n becomes a newline character
 				case 't':
 					currentToken.WriteByte('\t') // \t becomes a tab character
-				case '\\', '"', '$':
+				case '\\', '"', '$', ' ':
 					currentToken.WriteByte(c) // Escaped special characters
 				default:
 					currentToken.WriteByte('\\') // Preserve backslash if not a special case
@@ -34,7 +34,6 @@ func tokenize(input string) []string {
 				}
 			} else {
 				// Outside quotes or in single quotes, preserve backslash literally
-				currentToken.WriteByte('\\')
 				currentToken.WriteByte(c)
 			}
 			escapeNext = false
@@ -69,6 +68,9 @@ func tokenize(input string) []string {
 					tokens = append(tokens, currentToken.String())
 					currentToken.Reset()
 				}
+			} else if c == '\\' {
+				escapeNext = true
+				continue
 			} else {
 				currentToken.WriteByte(c)
 			}
