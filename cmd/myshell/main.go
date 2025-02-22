@@ -9,7 +9,8 @@ import (
 	"strings"
 )
 
-// tokenize splits the input string into tokens using Bash-style quoting rules.
+// tokenize splits the input string into tokens using Bash‐style quoting rules.
+// In single quotes, every character is taken literally (no escape processing).
 func tokenize(input string) []string {
 	var tokens []string
 	var currentToken strings.Builder
@@ -19,8 +20,20 @@ func tokenize(input string) []string {
 	for i := 0; i < len(input); i++ {
 		c := input[i]
 
+		// If we're inside single quotes, every character is literal.
+		if inSingleQuotes {
+			if c == '\'' { // closing single quote
+				inSingleQuotes = false
+			} else {
+				currentToken.WriteByte(c)
+			}
+			continue
+		}
+
+		// Not inside single quotes:
 		if escapeNext {
 			if inDoubleQuotes {
+				// In double quotes, only a limited set is escaped.
 				if c == '$' || c == '`' || c == '"' || c == '\\' || c == '\n' {
 					currentToken.WriteByte(c)
 				} else {
@@ -35,28 +48,33 @@ func tokenize(input string) []string {
 		}
 
 		if c == '\\' {
+			// In double quotes or outside any quotes, a backslash escapes the next character.
 			escapeNext = true
 			continue
 		}
 
-		if c == '\'' && !inDoubleQuotes {
-			inSingleQuotes = !inSingleQuotes
+		// Start of single quotes.
+		if c == '\'' {
+			inSingleQuotes = true
 			continue
 		}
 
-		if c == '"' && !inSingleQuotes {
+		// Toggle double quotes.
+		if c == '"' {
 			inDoubleQuotes = !inDoubleQuotes
 			continue
 		}
 
-		if !inSingleQuotes && !inDoubleQuotes && c == ' ' {
+		// Outside quotes, a space is a delimiter.
+		if !inDoubleQuotes && c == ' ' {
 			if currentToken.Len() > 0 {
 				tokens = append(tokens, currentToken.String())
 				currentToken.Reset()
 			}
-		} else {
-			currentToken.WriteByte(c)
+			continue
 		}
+
+		currentToken.WriteByte(c)
 	}
 
 	if currentToken.Len() > 0 {
@@ -174,12 +192,12 @@ REPL:
 				for _, commandInPath := range dirEntries {
 					if !commandInPath.IsDir() && commandInPath.Name() == tokens[0] {
 						commandToExec := exec.Command(path+"/"+tokens[0], tokens[1:]...)
-						// Override Arg[0] to show only the command name.
+						// Override Arg[0] so the program sees only the command name.
 						commandToExec.Args[0] = tokens[0]
 						commandToExec.Stdout = outWriter
 						commandToExec.Stdin = os.Stdin
 						commandToExec.Stderr = os.Stderr
-						_ = commandToExec.Run() // Ignore the error to avoid printing "exit status 1"
+						_ = commandToExec.Run() // Ignore error output to prevent extra messages.
 						found = true
 						break PATHLOOP
 					}
