@@ -79,7 +79,6 @@ func tokenize(input string) []string {
 		tokens = append(tokens, currentToken.String())
 	}
 
-	fmt.Println("The tokens are: ", tokens)
 	return tokens
 }
 
