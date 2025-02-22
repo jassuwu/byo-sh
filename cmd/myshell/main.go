@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -18,91 +19,117 @@ func tokenize(input string) []string {
 		c := input[i]
 
 		if escapeNext {
-			// When an escape is active, process the next character:
 			if inDoubleQuotes {
-				// In double quotes, only a limited set of characters are escaped.
 				if c == '$' || c == '`' || c == '"' || c == '\\' || c == '\n' {
 					currentToken.WriteByte(c)
 				} else {
-					// For any other character, the backslash is preserved.
 					currentToken.WriteByte('\\')
 					currentToken.WriteByte(c)
 				}
-			} else if inSingleQuotes {
-				// the backslash is preserved within singleQuotes
-				currentToken.WriteByte('\\')
-				currentToken.WriteByte(c)
 			} else {
-				// Outside quotes (or in single quotes), the backslash always escapes the next character.
 				currentToken.WriteByte(c)
 			}
 			escapeNext = false
 			continue
 		}
 
-		// If we see a backslash, set the escape flag and skip this character.
 		if c == '\\' {
 			escapeNext = true
 			continue
 		}
 
-		// Toggle single quotes if not in double quotes.
 		if c == '\'' && !inDoubleQuotes {
 			inSingleQuotes = !inSingleQuotes
-			// Do not include the quote character itself in the token.
 			continue
 		}
 
-		// Toggle double quotes if not in single quotes.
 		if c == '"' && !inSingleQuotes {
 			inDoubleQuotes = !inDoubleQuotes
-			// Do not include the quote character itself in the token.
 			continue
 		}
 
-		// If not inside any quotes, a space is a delimiter.
 		if !inSingleQuotes && !inDoubleQuotes && c == ' ' {
 			if currentToken.Len() > 0 {
 				tokens = append(tokens, currentToken.String())
 				currentToken.Reset()
 			}
 		} else {
-			// Otherwise, append the character.
 			currentToken.WriteByte(c)
 		}
 	}
 
-	// Add the final token if any.
 	if currentToken.Len() > 0 {
 		tokens = append(tokens, currentToken.String())
 	}
-
 	return tokens
 }
 
 func main() {
 	builtins := []string{"exit", "echo", "type", "pwd", "cd"}
 	PATH := os.Getenv("PATH")
-	// REPL
+	reader := bufio.NewReader(os.Stdin)
+
 REPL:
 	for {
 		fmt.Fprint(os.Stdout, "$ ")
-		commandWithNewLine, err := bufio.NewReader(os.Stdin).ReadString('\n')
+		commandWithNewLine, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "Error reading input:", err)
+			continue
 		}
 		s := strings.Trim(commandWithNewLine, "\r\n")
+		if s == "" {
+			continue
+		}
 		tokens := tokenize(s)
+		if len(tokens) == 0 {
+			continue
+		}
+
+		// Check for output redirection.
+		redir := false
+		redirIndex := -1
+		for i, t := range tokens {
+			if t == ">" || t == "1>" {
+				redir = true
+				redirIndex = i
+				break
+			}
+		}
+		var outWriter io.Writer = os.Stdout
+		var fileHandle *os.File
+		if redir {
+			if redirIndex+1 >= len(tokens) {
+				fmt.Fprintln(os.Stderr, "Redirection operator provided without filename")
+				continue REPL
+			}
+			fileName := tokens[redirIndex+1]
+			fileHandle, err = os.Create(fileName)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "Error opening file for redirection:", err)
+				continue REPL
+			}
+			outWriter = fileHandle
+			// Remove redirection tokens.
+			tokens = tokens[:redirIndex]
+			if len(tokens) == 0 {
+				// Nothing to execute.
+				fileHandle.Close()
+				continue REPL
+			}
+		}
+
 		switch tokens[0] {
 		case "exit":
 			break REPL
 		case "echo":
-			fmt.Println(strings.Join(tokens[1:], " "))
+			// Write output to outWriter instead of os.Stdout.
+			fmt.Fprintln(outWriter, strings.Join(tokens[1:], " "))
 		case "type":
 			commandToFindType, found := tokens[1], false
 			for _, builtin := range builtins {
 				if builtin == commandToFindType {
-					fmt.Println(commandToFindType, "is a shell builtin")
+					fmt.Fprintln(outWriter, commandToFindType, "is a shell builtin")
 					found = true
 					break
 				}
@@ -114,7 +141,7 @@ REPL:
 					dirEntries, _ := os.ReadDir(path)
 					for _, commandInPath := range dirEntries {
 						if !commandInPath.IsDir() && commandToFindType == commandInPath.Name() {
-							fmt.Println(commandToFindType, "is", path+"/"+commandToFindType)
+							fmt.Fprintln(outWriter, commandToFindType, "is", path+"/"+commandToFindType)
 							found = true
 							break TYPEPATHLOOP
 						}
@@ -122,14 +149,14 @@ REPL:
 				}
 			}
 			if !found {
-				fmt.Println(commandToFindType + ": not found")
+				fmt.Fprintln(outWriter, commandToFindType+": not found")
 			}
 		case "pwd":
 			cwd, err := os.Getwd()
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
 			}
-			fmt.Println(cwd)
+			fmt.Fprintln(outWriter, cwd)
 		case "cd":
 			newWD := tokens[1]
 			if newWD == "~" {
@@ -147,14 +174,15 @@ REPL:
 				dirEntries, _ := os.ReadDir(path)
 				for _, commandInPath := range dirEntries {
 					if !commandInPath.IsDir() && commandInPath.Name() == tokens[0] {
-						// Create the command with the full path.
 						commandToExec := exec.Command(path+"/"+tokens[0], tokens[1:]...)
-						// Override Arg[0] with the original command name.
+						// Override Arg[0] so the program sees only the command name.
 						commandToExec.Args[0] = tokens[0]
-						commandToExec.Stdout, commandToExec.Stdin, commandToExec.Stderr = os.Stdout, os.Stdin, os.Stderr
-						execErr := commandToExec.Run()
-						if execErr != nil {
-							fmt.Fprintln(os.Stderr, execErr)
+						commandToExec.Stdout = outWriter
+						commandToExec.Stdin = os.Stdin
+						commandToExec.Stderr = os.Stderr
+						err := commandToExec.Run()
+						if err != nil {
+							fmt.Fprintln(os.Stderr, err)
 						}
 						found = true
 						break PATHLOOP
@@ -162,8 +190,11 @@ REPL:
 				}
 			}
 			if !found {
-				fmt.Println(s + ": command not found")
+				fmt.Fprintln(outWriter, s+": command not found")
 			}
+		}
+		if fileHandle != nil {
+			fileHandle.Close()
 		}
 	}
 }
