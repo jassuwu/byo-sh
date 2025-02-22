@@ -105,16 +105,14 @@ REPL:
 			}
 			if !found {
 				paths := strings.Split(PATH, ":")
+			TYPEPATHLOOP:
 				for _, path := range paths {
 					dirEntries, _ := os.ReadDir(path)
-					// if err != nil {
-					// 	fmt.Fprintln(os.Stderr, "Error reading directory entries:", err)
-					// }
 					for _, commandInPath := range dirEntries {
 						if !commandInPath.IsDir() && commandToFindType == commandInPath.Name() {
 							fmt.Println(commandToFindType, "is", path+"/"+commandToFindType)
 							found = true
-							break
+							break TYPEPATHLOOP
 						}
 					}
 				}
