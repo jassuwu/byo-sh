@@ -19,7 +19,6 @@ type autocomplete struct {
 	input string
 }
 
-// NewAutocomplete returns an autocomplete structure with the given input.
 func NewAutocomplete(input string) autocomplete {
 	return autocomplete{input: input}
 }
@@ -27,7 +26,6 @@ func NewAutocomplete(input string) autocomplete {
 // Completion returns a completion for the input if it is a prefix of a builtin.
 func (a *autocomplete) Completion() string {
 	for _, cmd := range BUILTIN_COMMANDS {
-		// Use prefix match for autocompletion.
 		if strings.HasPrefix(cmd, a.input) {
 			return cmd
 		}
@@ -47,11 +45,9 @@ func readInput(prompt string) (string, error) {
 			return "", fmt.Errorf("Error reading user input: %s", err)
 		}
 		if b == '\n' {
-			// When Enter is pressed, print a newline and break.
 			fmt.Print("\r\n")
 			break
 		} else if b == '\t' {
-			// Autocomplete: use current input to complete if possible.
 			auto := NewAutocomplete(string(input))
 			completion := auto.Completion()
 			if completion != "" {
@@ -59,7 +55,7 @@ func readInput(prompt string) (string, error) {
 			}
 			// Reprint prompt and completed input.
 			fmt.Print("\r\033[K" + prompt + string(input) + " ")
-		} else if b == 127 || b == 8 { // Backspace key
+		} else if b == 127 || b == 8 {
 			if len(input) > 0 {
 				input = input[:len(input)-1]
 			}
@@ -73,8 +69,6 @@ func readInput(prompt string) (string, error) {
 }
 
 // tokenize splits the input string into tokens using Bash‑style quoting rules.
-// Inside single quotes everything is literal; inside double quotes, backslashes
-// escape only $, `, ", \, or newline; otherwise characters are taken literally.
 func tokenize(input string) []string {
 	var tokens []string
 	var currentToken strings.Builder
@@ -83,8 +77,6 @@ func tokenize(input string) []string {
 
 	for i := 0; i < len(input); i++ {
 		c := input[i]
-
-		// Inside single quotes: take everything literally.
 		if inSingleQuotes {
 			if c == '\'' {
 				inSingleQuotes = false
@@ -93,7 +85,6 @@ func tokenize(input string) []string {
 			}
 			continue
 		}
-
 		if escapeNext {
 			if inDoubleQuotes {
 				if c == '$' || c == '`' || c == '"' || c == '\\' || c == '\n' {
@@ -108,13 +99,10 @@ func tokenize(input string) []string {
 			escapeNext = false
 			continue
 		}
-
 		if c == '\\' {
 			escapeNext = true
 			continue
 		}
-
-		// Single quotes: if not in double quotes, toggle single quote mode.
 		if c == '\'' {
 			if inDoubleQuotes {
 				currentToken.WriteByte(c)
@@ -123,14 +111,10 @@ func tokenize(input string) []string {
 			}
 			continue
 		}
-
-		// Toggle double quotes if not in single quotes.
 		if c == '"' && !inSingleQuotes {
 			inDoubleQuotes = !inDoubleQuotes
 			continue
 		}
-
-		// Outside double quotes, a space is a delimiter.
 		if !inDoubleQuotes && c == ' ' {
 			if currentToken.Len() > 0 {
 				tokens = append(tokens, currentToken.String())
@@ -138,7 +122,6 @@ func tokenize(input string) []string {
 			}
 			continue
 		}
-
 		currentToken.WriteByte(c)
 	}
 	if currentToken.Len() > 0 {
@@ -149,8 +132,6 @@ func tokenize(input string) []string {
 
 func main() {
 	PATH := os.Getenv("PATH")
-
-	// Put terminal into raw mode for interactive per-key processing.
 	fd := int(os.Stdin.Fd())
 	oldState, err := term.MakeRaw(fd)
 	if err != nil {
@@ -159,9 +140,8 @@ func main() {
 	}
 	defer term.Restore(fd, oldState)
 
-	// Main REPL loop.
 	for {
-		// Print the prompt with carriage return and clear-line so it starts at column 0.
+		// Read input with a prompt that clears the line.
 		input, err := readInput("\r\033[K$ ")
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "Error reading input:", err)
@@ -171,17 +151,12 @@ func main() {
 		if input == "" {
 			continue
 		}
-
-		// Tokenize the input.
 		tokens := tokenize(input)
 		if len(tokens) == 0 {
 			continue
 		}
 
 		// Process redirection tokens.
-		// Supported redirection operators:
-		//   stdout: ">" or "1>" (overwrite), ">>" or "1>>" (append)
-		//   stderr: "2>" (overwrite), "2>>" (append)
 		var stdoutFileName string
 		var stdoutAppend bool
 		var stderrFileName string
@@ -212,7 +187,6 @@ func main() {
 			i++
 		}
 
-		// Set default output writers.
 		var outWriter io.Writer = os.Stdout
 		var errWriter io.Writer = os.Stderr
 		var stdoutFile *os.File
@@ -320,8 +294,7 @@ func main() {
 				for _, f := range files {
 					if !f.IsDir() && f.Name() == tokens[0] {
 						cmd := exec.Command(p+"/"+tokens[0], tokens[1:]...)
-						// Override Arg[0] so the command sees only its name.
-						cmd.Args[0] = tokens[0]
+						cmd.Args[0] = tokens[0] // Override Arg[0]
 						cmd.Stdout = outWriter
 						cmd.Stdin = os.Stdin
 						cmd.Stderr = errWriter
@@ -336,8 +309,9 @@ func main() {
 			}
 		}
 
-		// Force a newline after command execution to ensure prompt starts at column 0.
+		// Force a newline and flush stdout so the prompt appears at column 0.
 		fmt.Print("\r\n")
+		os.Stdout.Sync()
 		if stdoutFile != nil {
 			stdoutFile.Close()
 		}
