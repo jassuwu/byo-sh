@@ -11,70 +11,64 @@ import (
 func tokenize(input string) []string {
 	var tokens []string
 	var currentToken strings.Builder
-	inSingleQuotes := false
-	inDoubleQuotes := false
+	inSingleQuotes, inDoubleQuotes := false, false
 	escapeNext := false
 
 	for i := 0; i < len(input); i++ {
 		c := input[i]
 
 		if escapeNext {
-			// Handle escape sequences
-			switch {
-			case inDoubleQuotes:
-				// Special characters inside double quotes
-				switch c {
-				case '$', '`', '"', '\\':
-					currentToken.WriteByte(c) // Remove backslash, keep char
-				default:
-					currentToken.WriteByte('\\') // Keep backslash
+			// When an escape is active, process the next character:
+			if inDoubleQuotes {
+				// In double quotes, only a limited set of characters are escaped.
+				if c == '$' || c == '`' || c == '"' || c == '\\' || c == '\n' {
+					currentToken.WriteByte(c)
+				} else {
+					// For any other character, the backslash is preserved.
+					currentToken.WriteByte('\\')
 					currentToken.WriteByte(c)
 				}
-			default:
-				// Outside quotes, preserve the literal value
+			} else {
+				// Outside quotes (or in single quotes), the backslash always escapes the next character.
 				currentToken.WriteByte(c)
 			}
 			escapeNext = false
 			continue
 		}
 
+		// If we see a backslash, set the escape flag and skip this character.
 		if c == '\\' {
-			// Set escape flag
 			escapeNext = true
 			continue
 		}
 
+		// Toggle single quotes if not in double quotes.
 		if c == '\'' && !inDoubleQuotes {
-			// Toggle single quotes
 			inSingleQuotes = !inSingleQuotes
-			currentToken.WriteByte(c) // Keep the quote
+			// Do not include the quote character itself in the token.
 			continue
 		}
 
+		// Toggle double quotes if not in single quotes.
 		if c == '"' && !inSingleQuotes {
-			// Toggle double quotes
 			inDoubleQuotes = !inDoubleQuotes
-			currentToken.WriteByte(c) // Keep the quote
+			// Do not include the quote character itself in the token.
 			continue
 		}
 
-		if inSingleQuotes || inDoubleQuotes {
-			// Append characters inside quotes
-			currentToken.WriteByte(c)
-		} else {
-			// Outside quotes, split on spaces
-			if c == ' ' {
-				if currentToken.Len() > 0 {
-					tokens = append(tokens, currentToken.String())
-					currentToken.Reset()
-				}
-			} else {
-				currentToken.WriteByte(c)
+		// If not inside any quotes, a space is a delimiter.
+		if !inSingleQuotes && !inDoubleQuotes && c == ' ' {
+			if currentToken.Len() > 0 {
+				tokens = append(tokens, currentToken.String())
+				currentToken.Reset()
 			}
+		} else {
+			// Otherwise, append the character.
+			currentToken.WriteByte(c)
 		}
 	}
 
-	// Add the final token if any
+	// Add the final token if any.
 	if currentToken.Len() > 0 {
 		tokens = append(tokens, currentToken.String())
 	}
