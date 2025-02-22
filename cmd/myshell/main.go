@@ -113,13 +113,14 @@ REPL:
 		redir := false
 		redirIndex := -1
 		for i, t := range tokens {
-			if t == ">" || t == "1>" {
+			if t == ">" || t == "1>" || t == "2>" {
 				redir = true
 				redirIndex = i
 				break
 			}
 		}
 		var outWriter io.Writer = os.Stdout
+		var errWriter io.Writer = os.Stderr
 		var fileHandle *os.File
 		if redir {
 			if redirIndex+1 >= len(tokens) {
@@ -133,6 +134,7 @@ REPL:
 				continue REPL
 			}
 			outWriter = fileHandle
+			errWriter = fileHandle
 			// Remove redirection tokens from the command.
 			tokens = tokens[:redirIndex]
 			if len(tokens) == 0 {
@@ -175,7 +177,7 @@ REPL:
 		case "pwd":
 			cwd, err := os.Getwd()
 			if err != nil {
-				fmt.Fprintln(os.Stderr, err)
+				fmt.Fprintln(errWriter, err)
 			}
 			fmt.Fprintln(outWriter, cwd)
 		case "cd":
@@ -185,7 +187,7 @@ REPL:
 			}
 			err := os.Chdir(newWD)
 			if err != nil {
-				fmt.Fprintln(os.Stderr, "cd:", newWD+":", "No such file or directory")
+				fmt.Fprintln(errWriter, "cd:", newWD+":", "No such file or directory")
 			}
 		default:
 			found := false
@@ -200,7 +202,7 @@ REPL:
 						commandToExec.Args[0] = tokens[0]
 						commandToExec.Stdout = outWriter
 						commandToExec.Stdin = os.Stdin
-						commandToExec.Stderr = os.Stderr
+						commandToExec.Stderr = errWriter
 						_ = commandToExec.Run() // Ignore error output to prevent extra messages.
 						found = true
 						break PATHLOOP
