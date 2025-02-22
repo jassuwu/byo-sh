@@ -28,6 +28,10 @@ func tokenize(input string) []string {
 					currentToken.WriteByte('\\')
 					currentToken.WriteByte(c)
 				}
+			} else if inSingleQuotes {
+				// the backslash is preserved within singleQuotes
+				currentToken.WriteByte('\\')
+				currentToken.WriteByte(c)
 			} else {
 				// Outside quotes (or in single quotes), the backslash always escapes the next character.
 				currentToken.WriteByte(c)
