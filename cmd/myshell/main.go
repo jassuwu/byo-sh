@@ -25,10 +25,9 @@ func NewAutocomplete(input string) autocomplete {
 }
 
 // Completion returns a completion for the input if it is a prefix of a builtin.
-// (You can adjust the matching criteria as needed.)
 func (a *autocomplete) Completion() string {
-	// Using prefix match is more typical than contains.
 	for _, cmd := range BUILTIN_COMMANDS {
+		// Use prefix match for autocompletion.
 		if strings.HasPrefix(cmd, a.input) {
 			return cmd
 		}
@@ -37,8 +36,7 @@ func (a *autocomplete) Completion() string {
 }
 
 // readInput reads user input interactively in raw mode, handling each keystroke.
-// It supports backspace and auto‑completion for the builtins "echo" and "exit"
-// when the user presses the TAB key.
+// It supports backspace and autocompletion for "echo" and "exit" when TAB is pressed.
 func readInput(prompt string) (string, error) {
 	reader := bufio.NewReader(os.Stdin)
 	var input []byte
@@ -46,27 +44,26 @@ func readInput(prompt string) (string, error) {
 	for {
 		b, err := reader.ReadByte()
 		if err != nil {
-			return "", fmt.Errorf("Error when reading user input: %s", err)
+			return "", fmt.Errorf("Error reading user input: %s", err)
 		}
 		if b == '\n' {
-			// When newline is pressed, print newline and break.
+			// When Enter is pressed, print a newline and break.
 			fmt.Print("\r\n")
 			break
 		} else if b == '\t' {
-			// Auto-complete: use the current input (as string) to find a completion.
+			// Autocomplete: use current input to complete if possible.
 			auto := NewAutocomplete(string(input))
 			completion := auto.Completion()
 			if completion != "" {
-				// Replace current input with the completion.
 				input = []byte(completion)
 			}
 			// Reprint prompt and completed input.
-			fmt.Printf("\r\033[K%s%s ", prompt, string(input))
-		} else if b == 127 || b == 8 { // Handle backspace
+			fmt.Print("\r\033[K" + prompt + string(input) + " ")
+		} else if b == 127 || b == 8 { // Backspace key
 			if len(input) > 0 {
 				input = input[:len(input)-1]
 			}
-			fmt.Printf("\r\033[K%s%s", prompt, string(input))
+			fmt.Print("\r\033[K" + prompt + string(input))
 		} else {
 			input = append(input, b)
 			fmt.Printf("%c", b)
@@ -87,7 +84,7 @@ func tokenize(input string) []string {
 	for i := 0; i < len(input); i++ {
 		c := input[i]
 
-		// In single quotes, take everything literally.
+		// Inside single quotes: take everything literally.
 		if inSingleQuotes {
 			if c == '\'' {
 				inSingleQuotes = false
@@ -133,7 +130,7 @@ func tokenize(input string) []string {
 			continue
 		}
 
-		// Outside of double quotes, a space is a delimiter.
+		// Outside double quotes, a space is a delimiter.
 		if !inDoubleQuotes && c == ' ' {
 			if currentToken.Len() > 0 {
 				tokens = append(tokens, currentToken.String())
@@ -153,7 +150,7 @@ func tokenize(input string) []string {
 func main() {
 	PATH := os.Getenv("PATH")
 
-	// Put terminal into raw mode for interactive per-key handling.
+	// Put terminal into raw mode for interactive per-key processing.
 	fd := int(os.Stdin.Fd())
 	oldState, err := term.MakeRaw(fd)
 	if err != nil {
@@ -164,7 +161,7 @@ func main() {
 
 	// Main REPL loop.
 	for {
-		// Use a prompt that clears the line and prints "$ " at column 0.
+		// Print the prompt with carriage return and clear-line so it starts at column 0.
 		input, err := readInput("\r\033[K$ ")
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "Error reading input:", err)
@@ -183,8 +180,8 @@ func main() {
 
 		// Process redirection tokens.
 		// Supported redirection operators:
-		//   stdout: ">" or "1>" for overwrite, ">>" or "1>>" for append.
-		//   stderr: "2>" for overwrite, "2>>" for append.
+		//   stdout: ">" or "1>" (overwrite), ">>" or "1>>" (append)
+		//   stderr: "2>" (overwrite), "2>>" (append)
 		var stdoutFileName string
 		var stdoutAppend bool
 		var stderrFileName string
@@ -317,7 +314,7 @@ func main() {
 		default:
 			found := false
 			paths := strings.Split(PATH, ":")
-		LOOP:
+		PATHLOOP:
 			for _, p := range paths {
 				files, _ := os.ReadDir(p)
 				for _, f := range files {
@@ -330,7 +327,7 @@ func main() {
 						cmd.Stderr = errWriter
 						_ = cmd.Run()
 						found = true
-						break LOOP
+						break PATHLOOP
 					}
 				}
 			}
@@ -339,6 +336,8 @@ func main() {
 			}
 		}
 
+		// Force a newline after command execution to ensure prompt starts at column 0.
+		fmt.Print("\r\n")
 		if stdoutFile != nil {
 			stdoutFile.Close()
 		}
