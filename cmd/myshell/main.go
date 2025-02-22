@@ -109,20 +109,24 @@ REPL:
 			continue
 		}
 
-		// Check for output redirection: ">" or "1>"
-		redir := false
+		// Check for output or error redirection: ">" or "1>" or "2>"
+		outRedir := false
+		errRedir := false
 		redirIndex := -1
 		for i, t := range tokens {
-			if t == ">" || t == "1>" || t == "2>" {
-				redir = true
+			if t == ">" || t == "1>" {
+				outRedir = true
 				redirIndex = i
 				break
+			} else if t == "2>" {
+				errRedir = true
+				redirIndex = i
 			}
 		}
 		var outWriter io.Writer = os.Stdout
 		var errWriter io.Writer = os.Stderr
 		var fileHandle *os.File
-		if redir {
+		if outRedir || errRedir {
 			if redirIndex+1 >= len(tokens) {
 				fmt.Fprintln(os.Stderr, "Redirection operator provided without filename")
 				continue REPL
@@ -133,8 +137,11 @@ REPL:
 				fmt.Fprintln(os.Stderr, "Error opening file for redirection:", err)
 				continue REPL
 			}
-			outWriter = fileHandle
-			errWriter = fileHandle
+			if outRedir {
+				outWriter = fileHandle
+			} else {
+				errWriter = fileHandle
+			}
 			// Remove redirection tokens from the command.
 			tokens = tokens[:redirIndex]
 			if len(tokens) == 0 {
