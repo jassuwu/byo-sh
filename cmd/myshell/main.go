@@ -147,7 +147,7 @@ func main() {
 	// Main REPL loop.
 	for {
 		// Use our custom readLine function.
-		s, err := readLine("$ ")
+		s, err := readLine("\r\033[K$ ")
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "Error reading line:", err)
 			continue
