@@ -86,14 +86,13 @@ func tokenize(input string) []string {
 	return tokens
 }
 
-// readLine reads user input interactively in raw mode, handling each keypress.
+// readLine reads user input interactively in raw mode, handling each key press.
 // It supports backspace and auto‑completion for the builtins "echo" and "exit" when TAB is pressed.
 func readLine(prompt string) (string, error) {
 	// Print the prompt.
 	fmt.Print(prompt)
 	var buf []rune
 	for {
-		// Read one byte from stdin.
 		var b [1]byte
 		n, err := os.Stdin.Read(b[:])
 		if err != nil || n == 0 {
@@ -105,24 +104,22 @@ func readLine(prompt string) (string, error) {
 			fmt.Print("\r\n")
 			break
 		} else if c == 9 { // TAB key
-			// Auto-complete: if the current input is a prefix of "echo" or "exit"
+			// Auto-complete: if the current input (first token) is a prefix of "echo" or "exit"
 			current := string(buf)
+			// We complete only if the entire input is a prefix.
 			if strings.HasPrefix("echo", current) {
 				buf = []rune("echo ")
 			} else if strings.HasPrefix("exit", current) {
 				buf = []rune("exit ")
 			}
 			// Reprint the prompt and current buffer.
-			fmt.Print("\r\033[K") // \r returns carriage, \033[K clears to end of line.
-			fmt.Print(prompt + string(buf))
+			fmt.Print("\r\033[K" + prompt + string(buf))
 		} else if c == 127 || c == 8 { // Backspace key (127 or 8)
 			if len(buf) > 0 {
 				buf = buf[:len(buf)-1]
 			}
-			fmt.Print("\r\033[K")
-			fmt.Print(prompt + string(buf))
+			fmt.Print("\r\033[K" + prompt + string(buf))
 		} else {
-			// Append normal characters.
 			buf = append(buf, rune(c))
 			fmt.Printf("%c", c)
 		}
@@ -131,11 +128,11 @@ func readLine(prompt string) (string, error) {
 }
 
 func main() {
-	// Builtins: auto-completion will work only for "echo" and "exit".
+	// Builtins: auto-completion is active for "echo" and "exit".
 	builtins := []string{"exit", "echo", "type", "pwd", "cd"}
 	PATH := os.Getenv("PATH")
 
-	// Put the terminal into raw mode for fully interactive key handling.
+	// Put the terminal into raw mode for per-key processing.
 	fd := int(os.Stdin.Fd())
 	oldState, err := term.MakeRaw(fd)
 	if err != nil {
@@ -144,9 +141,9 @@ func main() {
 	}
 	defer term.Restore(fd, oldState)
 
-	// Main REPL loop.
 	for {
-		// Use our custom readLine function.
+		// Print prompt using carriage return and clear-line.
+		// (The prompt string here already includes any needed escapes.)
 		s, err := readLine("\r\033[K$ ")
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "Error reading line:", err)
@@ -205,6 +202,7 @@ func main() {
 		var stdoutFile *os.File
 		var stderrFile *os.File
 
+		// Open stdout file if specified.
 		if stdoutFileName != "" {
 			if stdoutAppend {
 				stdoutFile, err = os.OpenFile(
@@ -222,6 +220,7 @@ func main() {
 			outWriter = stdoutFile
 		}
 
+		// Open stderr file if specified.
 		if stderrFileName != "" {
 			if stderrAppend {
 				stderrFile, err = os.OpenFile(
