@@ -9,8 +9,9 @@ import (
 	"strings"
 )
 
-// tokenize splits the input string into tokens using Bash‐style quoting rules.
-// In single quotes, every character is taken literally (no escape processing).
+// tokenize splits the input string into tokens using Bash‑style quoting rules.
+// It treats text inside single quotes literally, and inside double quotes,
+// backslashes only escape: $, `, ", \, or newline. Otherwise, characters are taken literally.
 func tokenize(input string) []string {
 	var tokens []string
 	var currentToken strings.Builder
@@ -30,7 +31,6 @@ func tokenize(input string) []string {
 			continue
 		}
 
-		// Not inside single quotes:
 		if escapeNext {
 			if inDoubleQuotes {
 				// In double quotes, only a limited set is escaped.
@@ -48,24 +48,28 @@ func tokenize(input string) []string {
 		}
 
 		if c == '\\' {
-			// In double quotes or outside any quotes, a backslash escapes the next character.
 			escapeNext = true
 			continue
 		}
 
-		// Start of single quotes.
+		// When encountering a single quote:
+		// If inside double quotes, it should be taken literally.
 		if c == '\'' {
-			inSingleQuotes = true
+			if inDoubleQuotes {
+				currentToken.WriteByte(c)
+			} else {
+				inSingleQuotes = !inSingleQuotes
+			}
 			continue
 		}
 
-		// Toggle double quotes.
-		if c == '"' {
+		// Toggle double quotes if not in single quotes.
+		if c == '"' && !inSingleQuotes {
 			inDoubleQuotes = !inDoubleQuotes
 			continue
 		}
 
-		// Outside quotes, a space is a delimiter.
+		// Outside any quotes, a space is a delimiter.
 		if !inDoubleQuotes && c == ' ' {
 			if currentToken.Len() > 0 {
 				tokens = append(tokens, currentToken.String())
