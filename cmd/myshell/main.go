@@ -297,13 +297,7 @@ func main() {
 						cmd.Args[0] = tokens[0] // Override Arg[0]
 						cmd.Stdout = outWriter
 						cmd.Stdin = os.Stdin
-						if stderrFile != nil {
-							// For redirected stderr, don't include terminal formatting
-							cmd.Stderr = stderrFile
-						} else {
-							cmd.Stderr = errWriter
-						}
-						//						cmd.Stderr = errWriter
+						cmd.Stderr = errWriter
 						_ = cmd.Run()
 						found = true
 						break PATHLOOP
