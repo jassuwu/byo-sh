@@ -295,30 +295,9 @@ func main() {
 					if !f.IsDir() && f.Name() == tokens[0] {
 						cmd := exec.Command(p+"/"+tokens[0], tokens[1:]...)
 						cmd.Args[0] = tokens[0] // Override Arg[0]
-
 						cmd.Stdout = outWriter
 						cmd.Stdin = os.Stdin
-						// Create a custom stderr writer that properly formats output for redirection
-						if stderrFile != nil {
-
-							// Use pipe to intercept stderr
-							stderrPipe, err := cmd.StderrPipe()
-							if err == nil {
-								cmd.Stderr = nil // Clear the default stderr
-
-								go func() {
-									scanner := bufio.NewScanner(stderrPipe)
-									for scanner.Scan() {
-										fmt.Fprintln(errWriter, scanner.Text())
-									}
-								}()
-							} else {
-								cmd.Stderr = errWriter
-							}
-						} else {
-							cmd.Stderr = errWriter
-						}
-
+						cmd.Stderr = errWriter
 						_ = cmd.Run()
 						found = true
 						break PATHLOOP
@@ -331,6 +310,7 @@ func main() {
 		}
 
 		// Force a newline and flush stdout so the prompt appears at column 0.
+		// fmt.Print("\r\n")
 		os.Stdout.Sync()
 		if stdoutFile != nil {
 			stdoutFile.Close()
