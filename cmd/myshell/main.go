@@ -310,7 +310,7 @@ func main() {
 		}
 
 		// Force a newline and flush stdout so the prompt appears at column 0.
-		fmt.Print("\r\n")
+		// fmt.Print("\r\n")
 		os.Stdout.Sync()
 		if stdoutFile != nil {
 			stdoutFile.Close()
