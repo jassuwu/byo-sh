@@ -305,6 +305,7 @@ func main() {
 						errStr := strings.TrimLeft(stderrBuf.String(), " \t\r\n")
 						fmt.Fprint(outWriter, outStr)
 						fmt.Fprint(errWriter, errStr)
+						found = true
 						break PATHLOOP
 					}
 				}
