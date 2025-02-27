@@ -245,7 +245,7 @@ func main() {
 			cmdName := tokens[1]
 			found := false
 			for _, b := range BUILTIN_COMMANDS {
-				if strings.Compare(cmdName, string(v)) == 0 {
+				if strings.Compare(cmdName, string(b)) == 0 {
 					fmt.Fprintf(outWriter, "%s is a shell builtin\n\r", cmdName)
 					found = true
 					break
