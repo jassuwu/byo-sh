@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -34,7 +35,7 @@ func (a *autocomplete) Completion() string {
 }
 
 // readInput reads user input interactively in raw mode, handling each keystroke.
-// It supports backspace and autocompletion for "echo" and "exit" when TAB is pressed.
+// It supports backspace and autocompletion for builtins when TAB is pressed.
 func readInput(prompt string) (string, error) {
 	reader := bufio.NewReader(os.Stdin)
 	var input []byte
@@ -45,7 +46,7 @@ func readInput(prompt string) (string, error) {
 			return "", fmt.Errorf("Error reading user input: %s", err)
 		}
 		if b == '\n' {
-			fmt.Print("\r\n")
+			fmt.Print("\n")
 			break
 		} else if b == '\t' {
 			auto := NewAutocomplete(string(input))
@@ -173,7 +174,6 @@ func main() {
 				stdoutFileName = tokens[i+1]
 				stdoutAppend = (t == ">>" || t == "1>>")
 				tokens = append(tokens[:i], tokens[i+2:]...)
-				i-- // Decrement i to re-evaluate the current position
 				continue
 			} else if t == "2>" || t == "2>>" {
 				if i+1 >= len(tokens) {
@@ -183,7 +183,6 @@ func main() {
 				stderrFileName = tokens[i+1]
 				stderrAppend = (t == "2>>")
 				tokens = append(tokens[:i], tokens[i+2:]...)
-				i-- // Decrement i to re-evaluate the current position
 				continue
 			}
 			i++
@@ -245,8 +244,8 @@ func main() {
 			cmdName := tokens[1]
 			found := false
 			for _, b := range BUILTIN_COMMANDS {
-				if strings.Compare(cmdName, string(b)) == 0 {
-					fmt.Fprintf(outWriter, "%s is a shell builtin\n\r", cmdName)
+				if b == cmdName {
+					fmt.Fprintf(outWriter, "%s is a shell builtin\n", cmdName)
 					found = true
 					break
 				}
@@ -258,13 +257,7 @@ func main() {
 					files, _ := os.ReadDir(p)
 					for _, f := range files {
 						if !f.IsDir() && f.Name() == cmdName {
-							fmt.Fprintf(
-								outWriter,
-								"%s is %s/%s\n\r",
-								cmdName,
-								p,
-								cmdName,
-							)
+							fmt.Fprintf(outWriter, "%s is %s/%s\n", cmdName, p, cmdName)
 							found = true
 							break TYPEPATHLOOP
 						}
@@ -272,14 +265,14 @@ func main() {
 				}
 			}
 			if !found {
-				fmt.Fprintf(outWriter, "%s: not found\n\r", cmdName)
+				fmt.Fprintf(outWriter, "%s: not found\n", cmdName)
 			}
 		case "pwd":
 			cwd, err := os.Getwd()
 			if err != nil {
 				fmt.Fprintln(errWriter, err)
 			}
-			fmt.Fprintf(outWriter, "%s\n\r", cwd)
+			fmt.Fprintf(outWriter, "%s\n", cwd)
 		case "cd":
 			if len(tokens) < 2 {
 				fmt.Fprintln(errWriter, "cd: missing argument")
@@ -291,11 +284,7 @@ func main() {
 			}
 			err := os.Chdir(newWD)
 			if err != nil {
-				fmt.Fprintf(
-					errWriter,
-					"cd: %s: No such file or directory\n\r",
-					newWD,
-				)
+				fmt.Fprintf(errWriter, "cd: %s: No such file or directory\n", newWD)
 			}
 		default:
 			found := false
@@ -307,34 +296,25 @@ func main() {
 					if !f.IsDir() && f.Name() == tokens[0] {
 						cmd := exec.Command(p+"/"+tokens[0], tokens[1:]...)
 						cmd.Args[0] = tokens[0] // Override Arg[0]
-						cmd.Stdout = outWriter
+						var stdoutBuf, stderrBuf bytes.Buffer
+						cmd.Stdout = &stdoutBuf
 						cmd.Stdin = os.Stdin
-						cmd.Stderr = errWriter
-						err := cmd.Run()
-						if err != nil {
-							// Print the error to errWriter if the command fails
-							if exitError, ok := err.(*exec.ExitError); ok {
-								fmt.Fprint(
-									errWriter,
-									string(exitError.Stderr),
-								) // Print stderr
-							} else {
-								fmt.Fprintln(errWriter, err) // Print generic error
-							}
-						}
+						cmd.Stderr = &stderrBuf
+						_ = cmd.Run()
+						outStr := stdoutBuf.String()
+						errStr := stderrBuf.String()
+						fmt.Fprint(outWriter, outStr)
+						fmt.Fprint(errWriter, errStr)
 						found = true
 						break PATHLOOP
 					}
 				}
 			}
 			if !found {
-				fmt.Fprintf(outWriter, "%s: command not found\n\r", tokens[0])
+				fmt.Fprintf(outWriter, "%s: command not found\n", tokens[0])
 			}
 		}
 
-		// Force a newline and flush stdout so the prompt appears at column 0.
-		// fmt.Print("\r\n")
-		os.Stdout.Sync()
 		if stdoutFile != nil {
 			stdoutFile.Close()
 		}
