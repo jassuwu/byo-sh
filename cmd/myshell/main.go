@@ -55,7 +55,7 @@ func readInput(prompt string) (string, error) {
 				input = []byte(completion)
 			}
 			// Reprint prompt and completed input.
-			fmt.Print("\r" + prompt + string(input) + " ")
+			fmt.Print("\r\033[K" + prompt + string(input) + " ")
 		} else if b == 127 || b == 8 {
 			if len(input) > 0 {
 				input = input[:len(input)-1]
@@ -143,7 +143,7 @@ func main() {
 
 	for {
 		// Read input with a prompt that clears the line.
-		input, err := readInput("$ ")
+		input, err := readInput("\r\033[K$ ")
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "Error reading input:", err)
 			continue
@@ -152,6 +152,7 @@ func main() {
 		if input == "" {
 			continue
 		}
+		fmt.Print("\r\033[K")
 		tokens := tokenize(input)
 		if len(tokens) == 0 {
 			continue
@@ -296,15 +297,10 @@ func main() {
 					if !f.IsDir() && f.Name() == tokens[0] {
 						cmd := exec.Command(p+"/"+tokens[0], tokens[1:]...)
 						cmd.Args[0] = tokens[0] // Override Arg[0]
-						var stdoutBuf, stderrBuf bytes.Buffer
-						cmd.Stdout = &stdoutBuf
+						cmd.Stdout = outWriter
 						cmd.Stdin = os.Stdin
-						cmd.Stderr = &stderrBuf
+						cmd.Stderr = errWriter
 						_ = cmd.Run()
-						outStr := stdoutBuf.String()
-						errStr := stderrBuf.String()
-						fmt.Fprint(outWriter, outStr)
-						fmt.Fprint(errWriter, errStr)
 						found = true
 						break PATHLOOP
 					}
