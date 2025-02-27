@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -295,12 +296,15 @@ func main() {
 				for _, f := range files {
 					if !f.IsDir() && f.Name() == tokens[0] {
 						cmd := exec.Command(p+"/"+tokens[0], tokens[1:]...)
-						cmd.Args[0] = tokens[0] // Override Arg[0]
-						cmd.Stdout = outWriter
+						var stdoutBuf, stderrBuf bytes.Buffer
+						cmd.Stdout = &stdoutBuf
 						cmd.Stdin = os.Stdin
-						cmd.Stderr = errWriter
+						cmd.Stderr = &stderrBuf
 						_ = cmd.Run()
-						found = true
+						outStr := stdoutBuf.String()
+						errStr := strings.TrimLeft(stderrBuf.String(), " \t\r\n")
+						fmt.Fprint(outWriter, outStr)
+						fmt.Fprint(errWriter, errStr)
 						break PATHLOOP
 					}
 				}
