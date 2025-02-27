@@ -143,7 +143,7 @@ func main() {
 
 	for {
 		// Read input with a prompt that clears the line.
-		input, err := readInput("\r\033[K$ ")
+		input, err := readInput("$ ")
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "Error reading input:", err)
 			continue
