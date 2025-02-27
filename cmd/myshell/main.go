@@ -310,7 +310,7 @@ func main() {
 				}
 			}
 			if !found {
-				fmt.Fprintf(outWriter, "%s: command not found\n", tokens[0])
+				fmt.Fprintf(errWriter, "%s: command not found\n", tokens[0])
 			}
 		}
 
