@@ -173,6 +173,7 @@ func main() {
 				stdoutFileName = tokens[i+1]
 				stdoutAppend = (t == ">>" || t == "1>>")
 				tokens = append(tokens[:i], tokens[i+2:]...)
+				i-- // Decrement i to re-evaluate the current position
 				continue
 			} else if t == "2>" || t == "2>>" {
 				if i+1 >= len(tokens) {
@@ -182,6 +183,7 @@ func main() {
 				stderrFileName = tokens[i+1]
 				stderrAppend = (t == "2>>")
 				tokens = append(tokens[:i], tokens[i+2:]...)
+				i-- // Decrement i to re-evaluate the current position
 				continue
 			}
 			i++
@@ -243,7 +245,7 @@ func main() {
 			cmdName := tokens[1]
 			found := false
 			for _, b := range BUILTIN_COMMANDS {
-				if b == cmdName {
+				if strings.Compare(cmdName, string(v)) == 0 {
 					fmt.Fprintf(outWriter, "%s is a shell builtin\n\r", cmdName)
 					found = true
 					break
@@ -256,7 +258,13 @@ func main() {
 					files, _ := os.ReadDir(p)
 					for _, f := range files {
 						if !f.IsDir() && f.Name() == cmdName {
-							fmt.Fprintf(outWriter, "%s is %s/%s\n\r", cmdName, p, cmdName)
+							fmt.Fprintf(
+								outWriter,
+								"%s is %s/%s\n\r",
+								cmdName,
+								p,
+								cmdName,
+							)
 							found = true
 							break TYPEPATHLOOP
 						}
@@ -283,7 +291,11 @@ func main() {
 			}
 			err := os.Chdir(newWD)
 			if err != nil {
-				fmt.Fprintf(errWriter, "cd: %s: No such file or directory\n\r", newWD)
+				fmt.Fprintf(
+					errWriter,
+					"cd: %s: No such file or directory\n\r",
+					newWD,
+				)
 			}
 		default:
 			found := false
@@ -298,7 +310,18 @@ func main() {
 						cmd.Stdout = outWriter
 						cmd.Stdin = os.Stdin
 						cmd.Stderr = errWriter
-						_ = cmd.Run()
+						err := cmd.Run()
+						if err != nil {
+							// Print the error to errWriter if the command fails
+							if exitError, ok := err.(*exec.ExitError); ok {
+								fmt.Fprint(
+									errWriter,
+									string(exitError.Stderr),
+								) // Print stderr
+							} else {
+								fmt.Fprintln(errWriter, err) // Print generic error
+							}
+						}
 						found = true
 						break PATHLOOP
 					}
