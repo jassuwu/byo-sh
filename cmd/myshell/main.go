@@ -296,7 +296,7 @@ func main() {
 					if !f.IsDir() && f.Name() == tokens[0] {
 						cmd := exec.Command(p+"/"+tokens[0], tokens[1:]...)
 						cmd.Args[0] = tokens[0] // Override Arg[0]
-						cmd.Stdout = outWriterfmt.Print("\r\033[K")
+						cmd.Stdout = outWriter
 						cmd.Stdin = os.Stdin
 						cmd.Stderr = errWriter
 						_ = cmd.Run()
