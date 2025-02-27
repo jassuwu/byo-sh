@@ -55,7 +55,7 @@ func readInput(prompt string) (string, error) {
 				input = []byte(completion)
 			}
 			// Reprint prompt and completed input.
-			fmt.Print("\r\033[K" + prompt + string(input) + " ")
+			fmt.Print("\r" + prompt + string(input) + " ")
 		} else if b == 127 || b == 8 {
 			if len(input) > 0 {
 				input = input[:len(input)-1]
