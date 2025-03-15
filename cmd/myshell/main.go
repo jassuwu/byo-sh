@@ -154,7 +154,7 @@ func parseCMD(s string) (*CMD, error) {
 		cmd.Args = sanitized[1:]
 	}
 	for i, arg := range cmd.Args {
-		if i+1 > len(cmd.Args) {
+		if i >= len(cmd.Args) {
 			continue
 		}
 		switch arg {
